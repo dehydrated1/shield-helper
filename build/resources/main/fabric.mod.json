@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "shield-helper",
+  "version": "1.0.0",
+  "name": "Shield Helper",
+  "description": "Client-side shield interaction helper with configurable safety controls.",
+  "authors": ["YourName"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.example.shieldhelper.ShieldHelperMod"
+    ],
+    "client": [
+      "com.example.shieldhelper.client.ShieldHelperClient"
+    ],
+    "modmenu": [
+      "com.example.shieldhelper.client.ShieldHelperModMenu"
+    ]
+  },
+  "mixins": [
+    "shield-helper.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.18.1",
+    "fabric-api": "*",
+    "minecraft": "~1.21.11",
+    "java": ">=21"
+  },
+  "suggests": {
+    "modmenu": ">=17.0.0"
+  }
+}
