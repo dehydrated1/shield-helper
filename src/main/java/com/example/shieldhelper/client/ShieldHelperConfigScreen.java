@@ -5,7 +5,6 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
@@ -577,11 +576,17 @@ public final class ShieldHelperConfigScreen extends Screen {
     }
 
     @Override
+    public void onClose() {
+        if (this.minecraft != null) {
+            this.minecraft.setScreen(parent);
+        }
+    }
+
+    @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 20, 0xFFFFFF);
 
-        int x = (this.width - CONTROL_WIDTH) / 2;
         int bottomY = this.height - 48;
         graphics.drawCenteredString(this.font, successRateText(), this.width / 2, bottomY, 0xAAAAAA);
     }
@@ -617,6 +622,8 @@ public final class ShieldHelperConfigScreen extends Screen {
         protected void applyValue() {
             setter.accept(sliderToValue(this.value));
             ShieldHelperConfig.save();
+            this.value = valueToSlider(getter.getAsInt());
+            updateMessage();
         }
 
         private static int sliderToValue(double value) {

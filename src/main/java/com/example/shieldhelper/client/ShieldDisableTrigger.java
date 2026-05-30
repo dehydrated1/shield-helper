@@ -1,6 +1,5 @@
 package com.example.shieldhelper.client;
 
-import com.example.shieldhelper.ShieldHelperMod;
 import com.example.shieldhelper.config.ShieldHelperConfig;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.EnvType;
@@ -40,7 +39,6 @@ import java.util.concurrent.TimeUnit;
 
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
-import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 
 @Environment(EnvType.CLIENT)
 public final class ShieldDisableTrigger {
@@ -274,12 +272,15 @@ public final class ShieldDisableTrigger {
         }
 
         isMacroAttacking = true;
-        client.gameMode.attack(player, target);
-        player.swing(InteractionHand.MAIN_HAND);
-        isMacroAttacking = false;
+        try {
+            client.gameMode.attack(player, target);
+            player.swing(InteractionHand.MAIN_HAND);
+        } finally {
+            isMacroAttacking = false;
+        }
         
         triggerCooldownTicks = ShieldHelperConfig.get().blatantMode ? 0 : settings.attackCooldownTicks();
-        scheduleAsync(client, SUCCESS_CHECK_DELAY_MILLIS, () -> recordDisableResult(client, target, seqId));
+        scheduleAsync(client, SUCCESS_CHECK_DELAY_MILLIS, () -> recordDisableResult(client, target));
 
         if (settings.stunning()) {
             int stunDelayMillis = ThreadLocalRandom.current().nextInt(settings.stunningMinDelayMillis(), settings.stunningMaxDelayMillis() + 1);
@@ -294,11 +295,18 @@ public final class ShieldDisableTrigger {
         }
     }
 
-    private static void recordDisableResult(Minecraft client, Player target, long seqId) {
-        if (seqId != currentSequenceId || !sequenceInProgress) return;
+    private static void recordDisableResult(Minecraft client, Player target) {
+        if (client.level == null || target == null) {
+            return;
+        }
+
+        if (target.level() != client.level && !target.isRemoved()) {
+            return;
+        }
+
         boolean success = target.isRemoved()
                 || !target.isAlive()
-                || target.level() == client.level && !isShieldBlocking(target);
+                || !isShieldBlocking(target);
         ShieldHelperConfig.get().recordShieldDisableResult(success);
         ShieldHelperConfig.save();
     }
@@ -328,7 +336,7 @@ public final class ShieldDisableTrigger {
         LocalPlayer player = client.player;
         if (!canContinue(client, target, false) || player == null) {
             if (previousSlot != stunSlot) selectSlotSilent(player, previousSlot);
-            finishSequence(client, previousSlot, stunSlot, settings, seqId);
+            finishSequence(client, previousSlot, axeSlot, settings, seqId);
             return;
         }
 
@@ -338,9 +346,12 @@ public final class ShieldDisableTrigger {
         }
 
         isMacroAttacking = true;
-        client.gameMode.attack(player, target);
-        player.swing(InteractionHand.MAIN_HAND);
-        isMacroAttacking = false;
+        try {
+            client.gameMode.attack(player, target);
+            player.swing(InteractionHand.MAIN_HAND);
+        } finally {
+            isMacroAttacking = false;
+        }
 
         if (swapped) {
             selectSlotSilent(player, previousSlot);
@@ -351,43 +362,43 @@ public final class ShieldDisableTrigger {
             BlockPos webPos = BlockPos.containing(target.getX(), target.getY(), target.getZ()).immutable();
             int webDelay = getPingAdjustedMillis(client, settings.stunWebDelayMillis());
             if (ShieldHelperConfig.get().blatantMode || webDelay <= 0) {
-                performStunWeb(client, target, webPos, previousSlot, stunSlot, settings, forceSwitchBack, seqId);
+                performStunWeb(client, target, webPos, previousSlot, axeSlot, settings, forceSwitchBack, seqId);
             } else {
-                scheduleAsync(client, webDelay, () -> performStunWeb(client, target, webPos, previousSlot, stunSlot, settings, forceSwitchBack, seqId));
+                scheduleAsync(client, webDelay, () -> performStunWeb(client, target, webPos, previousSlot, axeSlot, settings, forceSwitchBack, seqId));
             }
         } else {
-            finishSequence(client, previousSlot, stunSlot, settings, forceSwitchBack, seqId);
+            finishSequence(client, previousSlot, axeSlot, settings, forceSwitchBack, seqId);
         }
     }
 
-    private static void performStunWeb(Minecraft client, Player target, BlockPos webPos, int previousSlot, int currentSlot, TriggerSettings settings, boolean forceSwitchBack, long seqId) {
+    private static void performStunWeb(Minecraft client, Player target, BlockPos webPos, int previousSlot, int restoreSlot, TriggerSettings settings, boolean forceSwitchBack, long seqId) {
         if (seqId != currentSequenceId || !sequenceInProgress) return;
         LocalPlayer player = client.player;
         int webSlot = player == null ? Inventory.NOT_FOUND_INDEX : findHotbarCobweb(player.getInventory());
         if (!canContinueForWeb(client, target) || player == null || webSlot == Inventory.NOT_FOUND_INDEX || !isCobwebInSlot(player.getInventory(), webSlot)) {
-            finishSequence(client, previousSlot, currentSlot, settings, forceSwitchBack, seqId);
+            finishSequence(client, previousSlot, restoreSlot, settings, forceSwitchBack, seqId);
             return;
         }
 
         BlockHitResult hitResult = findWebPlacementHit(client, webPos);
         if (hitResult == null) {
-            finishSequence(client, previousSlot, currentSlot, settings, forceSwitchBack, seqId);
+            finishSequence(client, previousSlot, restoreSlot, settings, forceSwitchBack, seqId);
             return;
         }
 
-        executeWebPlacement(client, target, hitResult, previousSlot, webSlot, settings, seqId);
+        executeWebPlacement(client, target, hitResult, previousSlot, restoreSlot, webSlot, settings, seqId);
     }
 
-    private static void executeWebPlacement(Minecraft client, Player target, BlockHitResult hitResult, int previousSlot, int webSlot, TriggerSettings settings, long seqId) {
+    private static void executeWebPlacement(Minecraft client, Player target, BlockHitResult hitResult, int previousSlot, int restoreSlot, int webSlot, TriggerSettings settings, long seqId) {
         if (seqId != currentSequenceId || !sequenceInProgress) return;
         LocalPlayer player = client.player;
         if (!canContinueForWeb(client, target) || player == null || !isCobwebInSlot(player.getInventory(), webSlot)) {
-            finishSequence(client, previousSlot, webSlot, settings, true, seqId);
+            finishSequence(client, previousSlot, restoreSlot, settings, true, seqId);
             return;
         }
 
         if (!isReachableBlockHit(player, hitResult)) {
-            finishSequence(client, previousSlot, webSlot, settings, true, seqId);
+            finishSequence(client, previousSlot, restoreSlot, settings, true, seqId);
             return;
         }
 
@@ -410,7 +421,7 @@ public final class ShieldDisableTrigger {
             selectSlotSilent(player, previousSlot);
         }
 
-        finishSequence(client, previousSlot, webSlot, settings, true, seqId);
+        finishSequence(client, previousSlot, restoreSlot, settings, true, seqId);
     }
 
     private static void finishSequence(Minecraft client, int previousSlot, int axeSlot, TriggerSettings settings, long seqId) {

@@ -100,6 +100,8 @@ public final class ShieldHelperConfig {
             return;
         }
 
+        config.clamp();
+
         try {
             Files.createDirectories(CONFIG_PATH.getParent());
             try (Writer writer = Files.newBufferedWriter(CONFIG_PATH)) {

@@ -20,6 +20,10 @@ public final class ShieldHelperSafety {
             return true;
         }
 
+        if (ShieldHelperConfig.SAFETY_ALL_WORLDS.equals(config.serverSafetyMode)) {
+            return true;
+        }
+
         return ShieldHelperConfig.SAFETY_TRUSTED_SERVERS.equals(config.serverSafetyMode)
                 && config.isTrustedServer(getCurrentServerAddress(client));
     }
