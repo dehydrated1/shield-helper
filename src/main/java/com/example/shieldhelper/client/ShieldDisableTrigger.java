@@ -239,9 +239,13 @@ public final class ShieldDisableTrigger {
 
         boolean swapped = false;
         if (player.getInventory().getSelectedSlot() != axeSlot) {
-            if (!selectSlot(player, axeSlot)) {
-                finishSequence(client, previousSlot, axeSlot, settings, seqId);
-                return;
+            if (settings.smpProfile()) {
+                selectSlotSilent(player, axeSlot);
+            } else {
+                if (!selectSlot(player, axeSlot)) {
+                    finishSequence(client, previousSlot, axeSlot, settings, seqId);
+                    return;
+                }
             }
             swapped = true;
         }
@@ -266,15 +270,15 @@ public final class ShieldDisableTrigger {
             return;
         }
 
-        if (player.getInventory().getSelectedSlot() != axeSlot && !selectSlot(player, axeSlot)) {
+        if (!settings.smpProfile() && player.getInventory().getSelectedSlot() != axeSlot && !selectSlot(player, axeSlot)) {
             finishSequence(client, previousSlot, axeSlot, settings, seqId);
             return;
         }
 
         isMacroAttacking = true;
         try {
-            client.gameMode.attack(player, target);
             player.swing(InteractionHand.MAIN_HAND);
+            client.gameMode.attack(player, target);
         } finally {
             isMacroAttacking = false;
         }
@@ -347,8 +351,8 @@ public final class ShieldDisableTrigger {
 
         isMacroAttacking = true;
         try {
-            client.gameMode.attack(player, target);
             player.swing(InteractionHand.MAIN_HAND);
+            client.gameMode.attack(player, target);
         } finally {
             isMacroAttacking = false;
         }
@@ -440,8 +444,12 @@ public final class ShieldDisableTrigger {
                 if (switchBackDelay <= 0) {
                     try {
                         LocalPlayer player = client.player;
-                        if (player != null && player.getInventory().getSelectedSlot() == axeSlot) {
-                            selectSlot(player, previousSlot);
+                        if (player != null) {
+                            if (settings.smpProfile()) {
+                                selectSlotSilent(player, previousSlot);
+                            } else if (player.getInventory().getSelectedSlot() == axeSlot) {
+                                selectSlot(player, previousSlot);
+                            }
                             if (settings.postAttackGuard()) {
                                 triggerPostAttackGuard(client, settings.postAttackGuardTicks());
                             }
@@ -454,8 +462,12 @@ public final class ShieldDisableTrigger {
                         if (seqId != currentSequenceId) return;
                         try {
                             LocalPlayer player = client.player;
-                            if (player != null && player.getInventory().getSelectedSlot() == axeSlot) {
-                                selectSlot(player, previousSlot);
+                            if (player != null) {
+                                if (settings.smpProfile()) {
+                                    selectSlotSilent(player, previousSlot);
+                                } else if (player.getInventory().getSelectedSlot() == axeSlot) {
+                                    selectSlot(player, previousSlot);
+                                }
                                 if (settings.postAttackGuard()) {
                                     triggerPostAttackGuard(client, settings.postAttackGuardTicks());
                                 }
