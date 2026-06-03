@@ -36,19 +36,15 @@ public final class ShieldHelperConfigScreen extends Screen {
     private Button controlsPageButton;
     private Button delaysPageButton;
 
-    private Button profileButton;
     private Button enabledButton;
     private Button hotkeyToggleButton;
     private Button statusNotificationsButton;
     private Button toggleKeyButton;
-    private Button safetyModeButton;
     private Button safetyStatusButton;
     private Button trustedServerButton;
 
     private Button switchBackButton;
     private Button stunningButton;
-    private Button missChanceButton;
-    private Button shieldMissChanceButton;
     private Button stunWebButton;
     private Button cooldownRequirementButton;
     private Button attackStrengthButton;
@@ -125,20 +121,6 @@ public final class ShieldHelperConfigScreen extends Screen {
     private void addGeneralControls(int x, int y) {
         int offset = 0;
 
-        profileButton = addRenderableWidget(Button.builder(profileText(), button -> {
-            config.cycleCombatProfile();
-            ShieldHelperConfig.save();
-            updateButtonLabels();
-        }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
-        offset++;
-
-        shieldMissChanceButton = addRenderableWidget(Button.builder(shieldMissChanceText(), button -> {
-            config.cycleShieldMissChance();
-            ShieldHelperConfig.save();
-            updateButtonLabels();
-        }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
-        offset++;
-
         switchBackButton = addRenderableWidget(Button.builder(switchBackText(), button -> {
             config.switchBackAfterAttack = !config.switchBackAfterAttack;
             ShieldHelperConfig.save();
@@ -157,13 +139,6 @@ public final class ShieldHelperConfigScreen extends Screen {
         offset++;
 
         if (config.stunning) {
-            missChanceButton = addRenderableWidget(Button.builder(missChanceText(), button -> {
-                config.cycleMissChance();
-                ShieldHelperConfig.save();
-                updateButtonLabels();
-            }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
-            offset++;
-
             stunWebButton = addRenderableWidget(Button.builder(stunWebText(), button -> {
                 config.stunWeb = config.stunWeb == ShieldHelperConfig.StunWebMode.ON ? ShieldHelperConfig.StunWebMode.OFF : ShieldHelperConfig.StunWebMode.ON;
                 ShieldHelperConfig.save();
@@ -242,13 +217,6 @@ public final class ShieldHelperConfigScreen extends Screen {
 
         toggleKeyButton = addRenderableWidget(Button.builder(toggleKeyText(), button -> {
             waitingForToggleKey = true;
-            updateButtonLabels();
-        }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
-        offset++;
-
-        safetyModeButton = addRenderableWidget(Button.builder(safetyModeText(), button -> {
-            config.cycleServerSafetyMode();
-            ShieldHelperConfig.save();
             updateButtonLabels();
         }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
         offset++;
@@ -347,10 +315,6 @@ public final class ShieldHelperConfigScreen extends Screen {
         if (delaysPageButton != null) {
             delaysPageButton.setMessage(delaysPageText());
         }
-        if (profileButton != null) {
-            profileButton.setMessage(profileText());
-        }
-
         if (enabledButton != null) {
             enabledButton.setMessage(enabledText());
         }
@@ -363,9 +327,6 @@ public final class ShieldHelperConfigScreen extends Screen {
         if (toggleKeyButton != null) {
             toggleKeyButton.setMessage(toggleKeyText());
         }
-        if (safetyModeButton != null) {
-            safetyModeButton.setMessage(safetyModeText());
-        }
         if (safetyStatusButton != null) {
             safetyStatusButton.setMessage(safetyStatusText());
         }
@@ -377,12 +338,6 @@ public final class ShieldHelperConfigScreen extends Screen {
         }
         if (stunningButton != null) {
             stunningButton.setMessage(stunningText());
-        }
-        if (missChanceButton != null) {
-            missChanceButton.setMessage(missChanceText());
-        }
-        if (shieldMissChanceButton != null) {
-            shieldMissChanceButton.setMessage(shieldMissChanceText());
         }
         if (stunWebButton != null) {
             stunWebButton.setMessage(stunWebText());
@@ -429,18 +384,6 @@ public final class ShieldHelperConfigScreen extends Screen {
         return Component.translatable(page == targetPage ? translationKey + ".selected" : translationKey);
     }
 
-    private Component profileText() {
-        return Component.translatable("shield-helper.config.profile", profileValueText());
-    }
-
-    private Component profileValueText() {
-        return Component.translatable(ShieldHelperConfig.PROFILE_SMP.equals(config.combatProfile)
-                ? "shield-helper.config.profile.smp"
-                : "shield-helper.config.profile.diasmp");
-    }
-
-
-
     private Component enabledText() {
         return Component.translatable("shield-helper.config.macro", stateText(config.enabled));
     }
@@ -459,16 +402,6 @@ public final class ShieldHelperConfigScreen extends Screen {
         }
 
         return Component.translatable("shield-helper.config.toggle_key", Component.literal(config.toggleKeyName.toUpperCase()));
-    }
-
-    private Component safetyModeText() {
-        return Component.translatable("shield-helper.config.safety_mode", safetyModeValueText());
-    }
-
-    private Component safetyModeValueText() {
-        return Component.translatable(ShieldHelperConfig.SAFETY_TRUSTED_SERVERS.equals(config.serverSafetyMode)
-                ? "shield-helper.config.safety_mode.trusted_servers"
-                : "shield-helper.config.safety_mode.all_worlds");
     }
 
     private Component safetyStatusText() {
@@ -499,20 +432,6 @@ public final class ShieldHelperConfigScreen extends Screen {
 
     private Component stunningText() {
         return Component.translatable("shield-helper.config.stunning", stateText(config.stunning));
-    }
-
-    private Component missChanceText() {
-        if (config.missChancePercent <= 0) {
-            return Component.translatable("shield-helper.config.miss_chance", Component.translatable("gui.no"));
-        }
-        return Component.translatable("shield-helper.config.miss_chance", Component.literal(config.missChancePercent + "%"));
-    }
-
-    private Component shieldMissChanceText() {
-        if (config.shieldMissChancePercent <= 0) {
-            return Component.translatable("shield-helper.config.shield_miss_chance", Component.translatable("gui.no"));
-        }
-        return Component.translatable("shield-helper.config.shield_miss_chance", Component.literal(config.shieldMissChancePercent + "%"));
     }
 
     private Component stunWebText() {

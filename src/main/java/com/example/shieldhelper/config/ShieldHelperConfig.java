@@ -16,14 +16,12 @@ import java.util.List;
 import java.util.Locale;
 
 public final class ShieldHelperConfig {
-    public static final String PROFILE_DIASMP = "diasmp";
-    public static final String PROFILE_SMP = "smp";
     public static final String SAFETY_TRUSTED_SERVERS = "trusted_servers";
-    public static final String SAFETY_ALL_WORLDS = "all_worlds";
     public static final int DEFAULT_TOGGLE_KEY_CODE = 86;
     public static final String DEFAULT_TOGGLE_KEY_NAME = "key.keyboard.v";
+    private static final int DEFAULT_STUN_WEB_DELAY_MILLIS = 100;
 
-    private static final int CURRENT_CONFIG_VERSION = 16;
+    private static final int CURRENT_CONFIG_VERSION = 17;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve(ShieldHelperMod.MOD_ID + ".json");
 
@@ -35,7 +33,6 @@ public final class ShieldHelperConfig {
     }
 
     public int configVersion = CURRENT_CONFIG_VERSION;
-    public String combatProfile = PROFILE_DIASMP;
     public boolean enabled = true;
     public boolean hotkeyToggleEnabled = true;
     public boolean statusNotifications = false;
@@ -53,7 +50,7 @@ public final class ShieldHelperConfig {
     public int firstAttackDelayMillis = 0;
     public int stunningMinDelayMillis = 30;
     public int stunningMaxDelayMillis = 50;
-    public int stunWebDelayMillis = 75;
+    public int stunWebDelayMillis = DEFAULT_STUN_WEB_DELAY_MILLIS;
     public int switchBackDelayMillis = 0;
     public long shieldDisableAttempts = 0L;
     public long shieldDisableSuccesses = 0L;
@@ -62,8 +59,6 @@ public final class ShieldHelperConfig {
     public boolean postAttackGuard = false;
     public int postAttackGuardTicks = 4;
     public boolean blatantMode = false;
-    public int missChancePercent = 0;
-    public int shieldMissChancePercent = 0;
 
     private ShieldHelperConfig() {
     }
@@ -114,7 +109,6 @@ public final class ShieldHelperConfig {
 
     public void reset() {
         configVersion = CURRENT_CONFIG_VERSION;
-        combatProfile = PROFILE_DIASMP;
         enabled = true;
         hotkeyToggleEnabled = true;
         statusNotifications = false;
@@ -132,15 +126,13 @@ public final class ShieldHelperConfig {
         firstAttackDelayMillis = 0;
         stunningMinDelayMillis = 30;
         stunningMaxDelayMillis = 50;
-        stunWebDelayMillis = 75;
+        stunWebDelayMillis = DEFAULT_STUN_WEB_DELAY_MILLIS;
         switchBackDelayMillis = 0;
         maxAttackRange = 3.0;
         pingCompensation = true;
         postAttackGuard = false;
         postAttackGuardTicks = 4;
         blatantMode = false;
-        missChancePercent = 0;
-        shieldMissChancePercent = 0;
         resetSuccessStats();
     }
 
@@ -160,15 +152,6 @@ public final class ShieldHelperConfig {
         }
 
         clamp();
-    }
-
-    public void cycleCombatProfile() {
-        combatProfile = PROFILE_SMP.equals(combatProfile) ? PROFILE_DIASMP : PROFILE_SMP;
-    }
-
-
-    public void cycleServerSafetyMode() {
-        serverSafetyMode = SAFETY_TRUSTED_SERVERS.equals(serverSafetyMode) ? SAFETY_ALL_WORLDS : SAFETY_TRUSTED_SERVERS;
     }
 
     public void cycleMaxAttackRange() {
@@ -278,10 +261,6 @@ public final class ShieldHelperConfig {
             switchBackDelayMillis = 0;
         }
 
-        if (configVersion < 5 || combatProfile == null) {
-            combatProfile = PROFILE_DIASMP;
-        }
-
         if (configVersion < 6) {
             hotkeyToggleEnabled = true;
             toggleKeyCode = DEFAULT_TOGGLE_KEY_CODE;
@@ -290,10 +269,6 @@ public final class ShieldHelperConfig {
 
         if (configVersion < 7) {
             trustedServers = new ArrayList<>();
-        }
-
-        if (configVersion < 8) {
-            serverSafetyMode = SAFETY_ALL_WORLDS;
         }
 
         if (configVersion < 9) {
@@ -311,14 +286,12 @@ public final class ShieldHelperConfig {
 
         if (configVersion < 12) {
             stunWeb = StunWebMode.OFF;
-            stunWebDelayMillis = 75;
+            stunWebDelayMillis = DEFAULT_STUN_WEB_DELAY_MILLIS;
         }
 
         if (configVersion < 13) {
             // removed stunWebAimAssist
         }
-
-
 
         configVersion = CURRENT_CONFIG_VERSION;
     }
@@ -330,10 +303,6 @@ public final class ShieldHelperConfig {
             stunWeb = StunWebMode.OFF;
         }
 
-        if (!PROFILE_SMP.equals(combatProfile) && !PROFILE_DIASMP.equals(combatProfile)) {
-            combatProfile = PROFILE_DIASMP;
-        }
-
         if (toggleKeyCode < 0) {
             toggleKeyCode = DEFAULT_TOGGLE_KEY_CODE;
         }
@@ -342,7 +311,7 @@ public final class ShieldHelperConfig {
             toggleKeyName = DEFAULT_TOGGLE_KEY_NAME;
         }
 
-        if (!SAFETY_TRUSTED_SERVERS.equals(serverSafetyMode) && !SAFETY_ALL_WORLDS.equals(serverSafetyMode)) {
+        if (!SAFETY_TRUSTED_SERVERS.equals(serverSafetyMode)) {
             serverSafetyMode = SAFETY_TRUSTED_SERVERS;
         }
 
@@ -407,34 +376,6 @@ public final class ShieldHelperConfig {
         } else if (postAttackGuardTicks > 20) {
             postAttackGuardTicks = 20;
         }
-
-        if (missChancePercent < 0) {
-            missChancePercent = 0;
-        } else if (missChancePercent > 50) {
-            missChancePercent = 50;
-        }
-
-        if (shieldMissChancePercent < 0) {
-            shieldMissChancePercent = 0;
-        } else if (shieldMissChancePercent > 50) {
-            shieldMissChancePercent = 50;
-        }
-    }
-
-    public void cycleMissChance() {
-        missChancePercent += 5;
-        if (missChancePercent > 50) {
-            missChancePercent = 0;
-        }
-        clamp();
-    }
-
-    public void cycleShieldMissChance() {
-        shieldMissChancePercent += 5;
-        if (shieldMissChancePercent > 50) {
-            shieldMissChancePercent = 0;
-        }
-        clamp();
     }
 
     private static int clampDelay(int delayMillis) {

@@ -7,7 +7,7 @@
   "authors": ["YourName"],
   "contact": {},
   "license": "MIT",
-  "environment": "*",
+  "environment": "client",
   "entrypoints": {
     "main": [
       "com.example.shieldhelper.ShieldHelperMod"
