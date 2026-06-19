@@ -53,7 +53,7 @@ public final class ShieldHelperConfigScreen extends Screen {
     private Button maxAttackRangeButton;
     private Button postAttackGuardButton;
     private Button postAttackGuardTicksButton;
-    private Button blatantModeButton;
+    private Button missPercentageButton;
 
     private DelaySliderButton swapDelaySlider;
     private DelaySliderButton firstAttackDelaySlider;
@@ -184,8 +184,8 @@ public final class ShieldHelperConfigScreen extends Screen {
             offset++;
         }
 
-        blatantModeButton = addRenderableWidget(Button.builder(blatantModeText(), button -> {
-            config.cycleBlatantMode();
+        missPercentageButton = addRenderableWidget(Button.builder(missPercentageText(), button -> {
+            config.cycleMissPercentage();
             ShieldHelperConfig.save();
             updateButtonLabels();
         }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
@@ -332,6 +332,7 @@ public final class ShieldHelperConfigScreen extends Screen {
         }
         if (trustedServerButton != null) {
             trustedServerButton.setMessage(trustedServerText());
+            trustedServerButton.active = ShieldHelperSafety.canTrustCurrentServer(this.minecraft);
         }
         if (switchBackButton != null) {
             switchBackButton.setMessage(switchBackText());
@@ -363,8 +364,8 @@ public final class ShieldHelperConfigScreen extends Screen {
         if (postAttackGuardTicksButton != null) {
             postAttackGuardTicksButton.setMessage(postAttackGuardTicksText());
         }
-        if (blatantModeButton != null) {
-            blatantModeButton.setMessage(blatantModeText());
+        if (missPercentageButton != null) {
+            missPercentageButton.setMessage(missPercentageText());
         }
     }
 
@@ -401,7 +402,7 @@ public final class ShieldHelperConfigScreen extends Screen {
             return Component.translatable("shield-helper.config.toggle_key.waiting");
         }
 
-        return Component.translatable("shield-helper.config.toggle_key", Component.literal(config.toggleKeyName.toUpperCase()));
+        return Component.translatable("shield-helper.config.toggle_key", InputConstants.getKey(config.toggleKeyName).getDisplayName());
     }
 
     private Component safetyStatusText() {
@@ -466,8 +467,8 @@ public final class ShieldHelperConfigScreen extends Screen {
         return Component.translatable("shield-helper.config.post_attack_guard_ticks", Component.literal(config.postAttackGuardTicks + " ticks"));
     }
 
-    private Component blatantModeText() {
-        return Component.translatable("shield-helper.config.blatant_mode", stateText(config.blatantMode));
+    private Component missPercentageText() {
+        return Component.translatable("shield-helper.config.miss_percentage", Component.literal(config.missPercentage + "%"));
     }
 
     private static Component stateText(boolean enabled) {
@@ -515,8 +516,12 @@ public final class ShieldHelperConfigScreen extends Screen {
             return Component.translatable("shield-helper.config.success_rate.empty");
         }
 
+        int successPercent = config.getShieldDisableSuccessPercent();
+        int missPercent = 100 - successPercent;
+        long misses = config.shieldDisableAttempts - config.shieldDisableSuccesses;
+
         return Component.translatable("shield-helper.config.success_rate",
-                config.getShieldDisableSuccessPercent(), config.shieldDisableSuccesses, config.shieldDisableAttempts);
+                successPercent, config.shieldDisableSuccesses, missPercent, misses, config.shieldDisableAttempts);
     }
 
     private static final class DelaySliderButton extends AbstractSliderButton {

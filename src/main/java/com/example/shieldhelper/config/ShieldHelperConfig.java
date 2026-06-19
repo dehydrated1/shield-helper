@@ -20,8 +20,10 @@ public final class ShieldHelperConfig {
     public static final int DEFAULT_TOGGLE_KEY_CODE = 86;
     public static final String DEFAULT_TOGGLE_KEY_NAME = "key.keyboard.v";
     private static final int DEFAULT_STUN_WEB_DELAY_MILLIS = 100;
+    private static final int DEFAULT_POST_ATTACK_GUARD_TICKS = 4;
+    private static final double DEFAULT_MAX_ATTACK_RANGE = 3.0D;
 
-    private static final int CURRENT_CONFIG_VERSION = 17;
+    private static final int CURRENT_CONFIG_VERSION = 18;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve(ShieldHelperMod.MOD_ID + ".json");
 
@@ -54,11 +56,12 @@ public final class ShieldHelperConfig {
     public int switchBackDelayMillis = 0;
     public long shieldDisableAttempts = 0L;
     public long shieldDisableSuccesses = 0L;
-    public double maxAttackRange = 3.0;
+    public double maxAttackRange = DEFAULT_MAX_ATTACK_RANGE;
     public boolean pingCompensation = true;
     public boolean postAttackGuard = false;
-    public int postAttackGuardTicks = 4;
+    public int postAttackGuardTicks = DEFAULT_POST_ATTACK_GUARD_TICKS;
     public boolean blatantMode = false;
+    public int missPercentage = 0;
 
     private ShieldHelperConfig() {
     }
@@ -128,11 +131,12 @@ public final class ShieldHelperConfig {
         stunningMaxDelayMillis = 50;
         stunWebDelayMillis = DEFAULT_STUN_WEB_DELAY_MILLIS;
         switchBackDelayMillis = 0;
-        maxAttackRange = 3.0;
+        maxAttackRange = DEFAULT_MAX_ATTACK_RANGE;
         pingCompensation = true;
         postAttackGuard = false;
-        postAttackGuardTicks = 4;
+        postAttackGuardTicks = DEFAULT_POST_ATTACK_GUARD_TICKS;
         blatantMode = false;
+        missPercentage = 0;
         resetSuccessStats();
     }
 
@@ -171,7 +175,15 @@ public final class ShieldHelperConfig {
     }
 
     public void cycleBlatantMode() {
-        blatantMode = !blatantMode;
+        blatantMode = false;
+        clamp();
+    }
+
+    public void cycleMissPercentage() {
+        missPercentage += 5;
+        if (missPercentage > 100) {
+            missPercentage = 0;
+        }
         clamp();
     }
 
@@ -293,14 +305,38 @@ public final class ShieldHelperConfig {
             // removed stunWebAimAssist
         }
 
+        if (configVersion < 14) {
+            maxAttackRange = DEFAULT_MAX_ATTACK_RANGE;
+            pingCompensation = true;
+        }
+
+        if (configVersion < 15) {
+            postAttackGuard = false;
+            postAttackGuardTicks = DEFAULT_POST_ATTACK_GUARD_TICKS;
+        }
+
+        if (configVersion < 16) {
+            blatantMode = false;
+        }
+
+        if (configVersion < 18) {
+            missPercentage = 0;
+        }
+
         configVersion = CURRENT_CONFIG_VERSION;
     }
 
     private void clamp() {
-
-
         if (stunWeb == null) {
             stunWeb = StunWebMode.OFF;
+        }
+
+        blatantMode = false;
+
+        if (missPercentage < 0) {
+            missPercentage = 0;
+        } else if (missPercentage > 100) {
+            missPercentage = 100;
         }
 
         if (toggleKeyCode < 0) {
@@ -365,14 +401,16 @@ public final class ShieldHelperConfig {
             stunningMaxDelayMillis = stunningMinDelayMillis;
         }
 
-        if (maxAttackRange < 2.0) {
+        if (maxAttackRange <= 0.0D) {
+            maxAttackRange = DEFAULT_MAX_ATTACK_RANGE;
+        } else if (maxAttackRange < 2.0) {
             maxAttackRange = 2.0;
         } else if (maxAttackRange > 3.0) {
             maxAttackRange = 3.0;
         }
 
         if (postAttackGuardTicks < 1) {
-            postAttackGuardTicks = 1;
+            postAttackGuardTicks = DEFAULT_POST_ATTACK_GUARD_TICKS;
         } else if (postAttackGuardTicks > 20) {
             postAttackGuardTicks = 20;
         }

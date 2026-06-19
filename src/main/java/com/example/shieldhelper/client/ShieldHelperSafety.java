@@ -5,6 +5,7 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.server.IntegratedServer;
 
 @Environment(EnvType.CLIENT)
 public final class ShieldHelperSafety {
@@ -16,25 +17,22 @@ public final class ShieldHelperSafety {
             return false;
         }
 
-        if (isSingleplayerOrLan(client)) {
-            return true;
-        }
-
-        return ShieldHelperConfig.SAFETY_TRUSTED_SERVERS.equals(config.serverSafetyMode)
+        return isSingleplayer(client)
+                || ShieldHelperConfig.SAFETY_TRUSTED_SERVERS.equals(config.serverSafetyMode)
                 && config.isTrustedServer(getCurrentServerAddress(client));
     }
 
-    public static boolean isSingleplayerOrLan(Minecraft client) {
+    public static boolean isSingleplayer(Minecraft client) {
         if (client == null) {
             return false;
         }
 
-        ServerData serverData = client.getCurrentServer();
-        return client.isLocalServer() || serverData != null && serverData.isLan();
+        IntegratedServer server = client.getSingleplayerServer();
+        return client.isSingleplayer() && server != null && !server.isPublished();
     }
 
     public static boolean canTrustCurrentServer(Minecraft client) {
-        return !isSingleplayerOrLan(client) && !getCurrentServerAddress(client).isEmpty();
+        return !isSingleplayer(client) && !getCurrentServerAddress(client).isEmpty();
     }
 
     public static String getCurrentServerAddress(Minecraft client) {
