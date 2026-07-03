@@ -19,20 +19,13 @@ public final class ShieldHelperConfig {
     public static final String SAFETY_TRUSTED_SERVERS = "trusted_servers";
     public static final int DEFAULT_TOGGLE_KEY_CODE = 86;
     public static final String DEFAULT_TOGGLE_KEY_NAME = "key.keyboard.v";
+    private static final int CURRENT_CONFIG_VERSION = 21;
     private static final int DEFAULT_STUN_WEB_DELAY_MILLIS = 100;
-    private static final int DEFAULT_POST_ATTACK_GUARD_TICKS = 4;
-    private static final double DEFAULT_MAX_ATTACK_RANGE = 3.0D;
-
-    private static final int CURRENT_CONFIG_VERSION = 18;
+    private static final int DEFAULT_SWITCH_BACK_DELAY_MILLIS = 50;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve(ShieldHelperMod.MOD_ID + ".json");
 
     private static ShieldHelperConfig instance;
-
-    public enum StunWebMode {
-        OFF,
-        ON
-    }
 
     public int configVersion = CURRENT_CONFIG_VERSION;
     public boolean enabled = true;
@@ -44,22 +37,16 @@ public final class ShieldHelperConfig {
     public List<String> trustedServers = new ArrayList<>();
     public boolean switchBackAfterAttack = true;
     public boolean stunning = false;
-    public StunWebMode stunWeb = StunWebMode.OFF;
+    public boolean stunWeb = false;
     public boolean requireAttackCooldown = true;
     public int minimumAttackStrengthPercent = 90;
     public int attackCooldownTicks = 8;
     public int swapDelayMillis = 0;
     public int firstAttackDelayMillis = 0;
-    public int stunningMinDelayMillis = 30;
+    public int stunningMinDelayMillis = 50;
     public int stunningMaxDelayMillis = 50;
     public int stunWebDelayMillis = DEFAULT_STUN_WEB_DELAY_MILLIS;
-    public int switchBackDelayMillis = 0;
-    public long shieldDisableAttempts = 0L;
-    public long shieldDisableSuccesses = 0L;
-    public double maxAttackRange = DEFAULT_MAX_ATTACK_RANGE;
-    public boolean pingCompensation = true;
-    public boolean postAttackGuard = false;
-    public int postAttackGuardTicks = DEFAULT_POST_ATTACK_GUARD_TICKS;
+    public int switchBackDelayMillis = DEFAULT_SWITCH_BACK_DELAY_MILLIS;
     public boolean blatantMode = false;
     public int missPercentage = 0;
 
@@ -121,23 +108,32 @@ public final class ShieldHelperConfig {
         trustedServers = new ArrayList<>();
         switchBackAfterAttack = true;
         stunning = false;
-        stunWeb = StunWebMode.OFF;
+        stunWeb = false;
         requireAttackCooldown = true;
         minimumAttackStrengthPercent = 90;
         attackCooldownTicks = 8;
         swapDelayMillis = 0;
         firstAttackDelayMillis = 0;
-        stunningMinDelayMillis = 30;
+        stunningMinDelayMillis = 50;
         stunningMaxDelayMillis = 50;
         stunWebDelayMillis = DEFAULT_STUN_WEB_DELAY_MILLIS;
-        switchBackDelayMillis = 0;
-        maxAttackRange = DEFAULT_MAX_ATTACK_RANGE;
-        pingCompensation = true;
-        postAttackGuard = false;
-        postAttackGuardTicks = DEFAULT_POST_ATTACK_GUARD_TICKS;
+        switchBackDelayMillis = DEFAULT_SWITCH_BACK_DELAY_MILLIS;
         blatantMode = false;
         missPercentage = 0;
-        resetSuccessStats();
+    }
+
+    public void cycleBlatantMode() {
+        blatantMode = !blatantMode;
+        clamp();
+    }
+
+    public void cycleMissPercentage() {
+        missPercentage += 5;
+        if (missPercentage > 100) {
+            missPercentage = 0;
+        }
+
+        clamp();
     }
 
     public void cycleMinimumAttackStrength() {
@@ -155,35 +151,6 @@ public final class ShieldHelperConfig {
             attackCooldownTicks = 0;
         }
 
-        clamp();
-    }
-
-    public void cycleMaxAttackRange() {
-        maxAttackRange += 0.1;
-        if (maxAttackRange > 3.05) {
-            maxAttackRange = 2.0;
-        }
-        clamp();
-    }
-
-    public void cyclePostAttackGuardTicks() {
-        postAttackGuardTicks += 1;
-        if (postAttackGuardTicks > 20) {
-            postAttackGuardTicks = 1;
-        }
-        clamp();
-    }
-
-    public void cycleBlatantMode() {
-        blatantMode = false;
-        clamp();
-    }
-
-    public void cycleMissPercentage() {
-        missPercentage += 5;
-        if (missPercentage > 100) {
-            missPercentage = 0;
-        }
         clamp();
     }
 
@@ -217,32 +184,6 @@ public final class ShieldHelperConfig {
         clamp();
     }
 
-    public void recordShieldDisableResult(boolean success) {
-        if (shieldDisableAttempts == Long.MAX_VALUE) {
-            resetSuccessStats();
-        }
-
-        shieldDisableAttempts++;
-        if (success) {
-            shieldDisableSuccesses++;
-        }
-
-        clamp();
-    }
-
-    public void resetSuccessStats() {
-        shieldDisableAttempts = 0L;
-        shieldDisableSuccesses = 0L;
-    }
-
-    public int getShieldDisableSuccessPercent() {
-        if (shieldDisableAttempts <= 0L) {
-            return 0;
-        }
-
-        return (int) Math.round(shieldDisableSuccesses * 100.0D / shieldDisableAttempts);
-    }
-
     public static String normalizeServerAddress(String serverAddress) {
         if (serverAddress == null) {
             return "";
@@ -261,18 +202,6 @@ public final class ShieldHelperConfig {
     }
 
     private void migrate() {
-        if (configVersion < 3) {
-            stunning = false;
-        }
-
-        if (configVersion < 4) {
-            swapDelayMillis = 0;
-            firstAttackDelayMillis = 0;
-            stunningMinDelayMillis = 30;
-            stunningMaxDelayMillis = 50;
-            switchBackDelayMillis = 0;
-        }
-
         if (configVersion < 6) {
             hotkeyToggleEnabled = true;
             toggleKeyCode = DEFAULT_TOGGLE_KEY_CODE;
@@ -283,11 +212,6 @@ public final class ShieldHelperConfig {
             trustedServers = new ArrayList<>();
         }
 
-        if (configVersion < 9) {
-            shieldDisableAttempts = 0L;
-            shieldDisableSuccesses = 0L;
-        }
-
         if (configVersion < 10) {
             serverSafetyMode = SAFETY_TRUSTED_SERVERS;
         }
@@ -296,30 +220,24 @@ public final class ShieldHelperConfig {
             statusNotifications = false;
         }
 
-        if (configVersion < 12) {
-            stunWeb = StunWebMode.OFF;
+        if (configVersion < 19) {
+            if (stunningMinDelayMillis == 30 && stunningMaxDelayMillis == 50) {
+                stunningMinDelayMillis = 50;
+                stunningMaxDelayMillis = 50;
+            }
+
+            if (switchBackDelayMillis == 0) {
+                switchBackDelayMillis = DEFAULT_SWITCH_BACK_DELAY_MILLIS;
+            }
+        }
+
+        if (configVersion < 20) {
+            stunWeb = false;
             stunWebDelayMillis = DEFAULT_STUN_WEB_DELAY_MILLIS;
         }
 
-        if (configVersion < 13) {
-            // removed stunWebAimAssist
-        }
-
-        if (configVersion < 14) {
-            maxAttackRange = DEFAULT_MAX_ATTACK_RANGE;
-            pingCompensation = true;
-        }
-
-        if (configVersion < 15) {
-            postAttackGuard = false;
-            postAttackGuardTicks = DEFAULT_POST_ATTACK_GUARD_TICKS;
-        }
-
-        if (configVersion < 16) {
+        if (configVersion < 21) {
             blatantMode = false;
-        }
-
-        if (configVersion < 18) {
             missPercentage = 0;
         }
 
@@ -327,18 +245,6 @@ public final class ShieldHelperConfig {
     }
 
     private void clamp() {
-        if (stunWeb == null) {
-            stunWeb = StunWebMode.OFF;
-        }
-
-        blatantMode = false;
-
-        if (missPercentage < 0) {
-            missPercentage = 0;
-        } else if (missPercentage > 100) {
-            missPercentage = 100;
-        }
-
         if (toggleKeyCode < 0) {
             toggleKeyCode = DEFAULT_TOGGLE_KEY_CODE;
         }
@@ -349,22 +255,6 @@ public final class ShieldHelperConfig {
 
         if (!SAFETY_TRUSTED_SERVERS.equals(serverSafetyMode)) {
             serverSafetyMode = SAFETY_TRUSTED_SERVERS;
-        }
-
-        if (shieldDisableAttempts < 0L) {
-            shieldDisableAttempts = 0L;
-        }
-
-        if (shieldDisableSuccesses < 0L) {
-            shieldDisableSuccesses = 0L;
-        }
-
-        if (shieldDisableSuccesses > shieldDisableAttempts) {
-            shieldDisableSuccesses = shieldDisableAttempts;
-        }
-
-        if (!stunning) {
-            stunWeb = StunWebMode.OFF;
         }
 
         LinkedHashSet<String> normalizedTrustedServers = new LinkedHashSet<>();
@@ -401,18 +291,14 @@ public final class ShieldHelperConfig {
             stunningMaxDelayMillis = stunningMinDelayMillis;
         }
 
-        if (maxAttackRange <= 0.0D) {
-            maxAttackRange = DEFAULT_MAX_ATTACK_RANGE;
-        } else if (maxAttackRange < 2.0) {
-            maxAttackRange = 2.0;
-        } else if (maxAttackRange > 3.0) {
-            maxAttackRange = 3.0;
+        if (!stunning) {
+            stunWeb = false;
         }
 
-        if (postAttackGuardTicks < 1) {
-            postAttackGuardTicks = DEFAULT_POST_ATTACK_GUARD_TICKS;
-        } else if (postAttackGuardTicks > 20) {
-            postAttackGuardTicks = 20;
+        if (missPercentage < 0) {
+            missPercentage = 0;
+        } else if (missPercentage > 100) {
+            missPercentage = 100;
         }
     }
 

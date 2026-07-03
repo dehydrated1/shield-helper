@@ -8,6 +8,6 @@ import net.fabricmc.api.Environment;
 public final class ShieldHelperClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
-        ShieldDisableTrigger.register();
+        ShieldHelperRuntime.register();
     }
 }

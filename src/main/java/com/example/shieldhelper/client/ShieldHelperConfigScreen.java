@@ -49,18 +49,8 @@ public final class ShieldHelperConfigScreen extends Screen {
     private Button cooldownRequirementButton;
     private Button attackStrengthButton;
     private Button triggerCooldownButton;
-    private Button pingCompensationButton;
-    private Button maxAttackRangeButton;
-    private Button postAttackGuardButton;
-    private Button postAttackGuardTicksButton;
+    private Button blatantModeButton;
     private Button missPercentageButton;
-
-    private DelaySliderButton swapDelaySlider;
-    private DelaySliderButton firstAttackDelaySlider;
-    private DelaySliderButton stunningMinDelaySlider;
-    private DelaySliderButton stunningMaxDelaySlider;
-    private DelaySliderButton stunWebDelaySlider;
-    private DelaySliderButton switchBackDelaySlider;
 
     public ShieldHelperConfigScreen(Screen parent) {
         super(Component.translatable("shield-helper.config.title"));
@@ -131,7 +121,7 @@ public final class ShieldHelperConfigScreen extends Screen {
         stunningButton = addRenderableWidget(Button.builder(stunningText(), button -> {
             config.stunning = !config.stunning;
             if (!config.stunning) {
-                config.stunWeb = ShieldHelperConfig.StunWebMode.OFF;
+                config.stunWeb = false;
             }
             ShieldHelperConfig.save();
             buildWidgets();
@@ -140,9 +130,9 @@ public final class ShieldHelperConfigScreen extends Screen {
 
         if (config.stunning) {
             stunWebButton = addRenderableWidget(Button.builder(stunWebText(), button -> {
-                config.stunWeb = config.stunWeb == ShieldHelperConfig.StunWebMode.ON ? ShieldHelperConfig.StunWebMode.OFF : ShieldHelperConfig.StunWebMode.ON;
+                config.stunWeb = !config.stunWeb;
                 ShieldHelperConfig.save();
-                updateButtonLabels();
+                buildWidgets();
             }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
             offset++;
         }
@@ -168,21 +158,12 @@ public final class ShieldHelperConfigScreen extends Screen {
         }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
         offset++;
 
-        postAttackGuardButton = addRenderableWidget(Button.builder(postAttackGuardText(), button -> {
-            config.postAttackGuard = !config.postAttackGuard;
+        blatantModeButton = addRenderableWidget(Button.builder(blatantModeText(), button -> {
+            config.cycleBlatantMode();
             ShieldHelperConfig.save();
-            buildWidgets();
+            updateButtonLabels();
         }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
         offset++;
-
-        if (config.postAttackGuard) {
-            postAttackGuardTicksButton = addRenderableWidget(Button.builder(postAttackGuardTicksText(), button -> {
-                config.cyclePostAttackGuardTicks();
-                ShieldHelperConfig.save();
-                updateButtonLabels();
-            }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
-            offset++;
-        }
 
         missPercentageButton = addRenderableWidget(Button.builder(missPercentageText(), button -> {
             config.cycleMissPercentage();
@@ -235,74 +216,37 @@ public final class ShieldHelperConfigScreen extends Screen {
             }
         }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
         trustedServerButton.active = ShieldHelperSafety.canTrustCurrentServer(this.minecraft);
-        offset++;
-
-        pingCompensationButton = addRenderableWidget(Button.builder(pingCompensationText(), button -> {
-            config.pingCompensation = !config.pingCompensation;
-            ShieldHelperConfig.save();
-            updateButtonLabels();
-        }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
-        offset++;
-
-        maxAttackRangeButton = addRenderableWidget(Button.builder(maxAttackRangeText(), button -> {
-            config.cycleMaxAttackRange();
-            ShieldHelperConfig.save();
-            updateButtonLabels();
-        }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
     }
 
     private void addDelayControls(int x, int y) {
-        swapDelaySlider = addRenderableWidget(new DelaySliderButton(
-                x,
-                y,
-                "shield-helper.config.swap_delay",
-                () -> config.swapDelayMillis,
-                value -> config.swapDelayMillis = value
-        ));
+        addRenderableWidget(new DelaySliderButton(x, y, "shield-helper.config.swap_delay",
+                () -> config.swapDelayMillis, value -> config.swapDelayMillis = value));
 
-        firstAttackDelaySlider = addRenderableWidget(new DelaySliderButton(
-                x,
-                y + CONTROL_SPACING,
-                "shield-helper.config.first_attack_delay",
-                () -> config.firstAttackDelayMillis,
-                value -> config.firstAttackDelayMillis = value
-        ));
+        addRenderableWidget(new DelaySliderButton(x, y + CONTROL_SPACING, "shield-helper.config.first_attack_delay",
+                () -> config.firstAttackDelayMillis, value -> config.firstAttackDelayMillis = value));
 
-        stunningMinDelaySlider = addRenderableWidget(new DelaySliderButton(
-                x,
-                y + CONTROL_SPACING * 2,
-                "shield-helper.config.stunning_min_delay",
-                () -> config.stunningMinDelayMillis,
-                value -> config.stunningMinDelayMillis = value
-        ));
+        addRenderableWidget(new DelaySliderButton(x, y + CONTROL_SPACING * 2, "shield-helper.config.stunning_min_delay",
+                () -> config.stunningMinDelayMillis, value -> {
+            config.stunningMinDelayMillis = value;
+            if (config.stunningMaxDelayMillis < value) {
+                config.stunningMaxDelayMillis = value;
+            }
+        }));
 
-        stunningMaxDelaySlider = addRenderableWidget(new DelaySliderButton(
-                x,
-                y + CONTROL_SPACING * 3,
-                "shield-helper.config.stunning_max_delay",
-                () -> config.stunningMaxDelayMillis,
-                value -> config.stunningMaxDelayMillis = value
-        ));
+        addRenderableWidget(new DelaySliderButton(x, y + CONTROL_SPACING * 3, "shield-helper.config.stunning_max_delay",
+                () -> config.stunningMaxDelayMillis, value -> {
+            config.stunningMaxDelayMillis = value;
+            if (config.stunningMinDelayMillis > value) {
+                config.stunningMinDelayMillis = value;
+            }
+        }));
 
-        int nextOffset = 4;
-        if (config.stunning && config.stunWeb != ShieldHelperConfig.StunWebMode.OFF) {
-            stunWebDelaySlider = addRenderableWidget(new DelaySliderButton(
-                    x,
-                    y + CONTROL_SPACING * nextOffset,
-                    "shield-helper.config.stun_web_delay",
-                    () -> config.stunWebDelayMillis,
-                    value -> config.stunWebDelayMillis = value
-            ));
-            nextOffset++;
-        }
+        DelaySliderButton stunWebDelaySlider = addRenderableWidget(new DelaySliderButton(x, y + CONTROL_SPACING * 4,
+                "shield-helper.config.stun_web_delay", () -> config.stunWebDelayMillis, value -> config.stunWebDelayMillis = value));
+        stunWebDelaySlider.active = config.stunning && config.stunWeb;
 
-        switchBackDelaySlider = addRenderableWidget(new DelaySliderButton(
-                x,
-                y + CONTROL_SPACING * nextOffset,
-                "shield-helper.config.switch_back_delay",
-                () -> config.switchBackDelayMillis,
-                value -> config.switchBackDelayMillis = value
-        ));
+        addRenderableWidget(new DelaySliderButton(x, y + CONTROL_SPACING * 5, "shield-helper.config.switch_back_delay",
+                () -> config.switchBackDelayMillis, value -> config.switchBackDelayMillis = value));
     }
 
     private void updateButtonLabels() {
@@ -352,17 +296,8 @@ public final class ShieldHelperConfigScreen extends Screen {
         if (triggerCooldownButton != null) {
             triggerCooldownButton.setMessage(triggerCooldownText());
         }
-        if (pingCompensationButton != null) {
-            pingCompensationButton.setMessage(pingCompensationText());
-        }
-        if (maxAttackRangeButton != null) {
-            maxAttackRangeButton.setMessage(maxAttackRangeText());
-        }
-        if (postAttackGuardButton != null) {
-            postAttackGuardButton.setMessage(postAttackGuardText());
-        }
-        if (postAttackGuardTicksButton != null) {
-            postAttackGuardTicksButton.setMessage(postAttackGuardTicksText());
+        if (blatantModeButton != null) {
+            blatantModeButton.setMessage(blatantModeText());
         }
         if (missPercentageButton != null) {
             missPercentageButton.setMessage(missPercentageText());
@@ -436,7 +371,7 @@ public final class ShieldHelperConfigScreen extends Screen {
     }
 
     private Component stunWebText() {
-        return Component.translatable("shield-helper.config.stun_web", stateText(config.stunWeb == ShieldHelperConfig.StunWebMode.ON));
+        return Component.translatable("shield-helper.config.stun_web", stateText(config.stunWeb));
     }
 
     private Component cooldownRequirementText() {
@@ -451,20 +386,8 @@ public final class ShieldHelperConfigScreen extends Screen {
         return Component.translatable("shield-helper.config.trigger_cooldown", Component.literal(config.attackCooldownTicks + " ticks"));
     }
 
-    private Component pingCompensationText() {
-        return Component.translatable("shield-helper.config.ping_compensation", stateText(config.pingCompensation));
-    }
-
-    private Component maxAttackRangeText() {
-        return Component.translatable("shield-helper.config.max_attack_range", Component.literal(String.format(java.util.Locale.US, "%.1f blocks", config.maxAttackRange)));
-    }
-
-    private Component postAttackGuardText() {
-        return Component.translatable("shield-helper.config.post_attack_guard", stateText(config.postAttackGuard));
-    }
-
-    private Component postAttackGuardTicksText() {
-        return Component.translatable("shield-helper.config.post_attack_guard_ticks", Component.literal(config.postAttackGuardTicks + " ticks"));
+    private Component blatantModeText() {
+        return Component.translatable("shield-helper.config.blatant_mode", stateText(config.blatantMode));
     }
 
     private Component missPercentageText() {
@@ -506,22 +429,6 @@ public final class ShieldHelperConfigScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 20, 0xFFFFFF);
-
-        int bottomY = this.height - 48;
-        graphics.drawCenteredString(this.font, successRateText(), this.width / 2, bottomY, 0xAAAAAA);
-    }
-
-    private Component successRateText() {
-        if (config.shieldDisableAttempts <= 0L) {
-            return Component.translatable("shield-helper.config.success_rate.empty");
-        }
-
-        int successPercent = config.getShieldDisableSuccessPercent();
-        int missPercent = 100 - successPercent;
-        long misses = config.shieldDisableAttempts - config.shieldDisableSuccesses;
-
-        return Component.translatable("shield-helper.config.success_rate",
-                successPercent, config.shieldDisableSuccesses, missPercent, misses, config.shieldDisableAttempts);
     }
 
     private static final class DelaySliderButton extends AbstractSliderButton {

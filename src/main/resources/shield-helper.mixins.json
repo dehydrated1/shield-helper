@@ -3,7 +3,11 @@
   "package": "com.example.shieldhelper.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [],
-  "client": [],
+  "client": [
+    "ClientPlayerInteractionManagerMixin",
+    "LocalPlayerSilentRotationMixin",
+    "MultiPlayerGameModeSilentRotationMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }

@@ -19,6 +19,7 @@
   "shield-helper.config.switch_back": "Switch Back After Hit: %s",
   "shield-helper.config.stunning": "Stunning Extra Click: %s",
   "shield-helper.config.stun_web": "Stun Cobweb: %s",
+  "shield-helper.config.blatant_mode": "Blatant Mode: %s",
 
   "shield-helper.config.require_cooldown": "Require Attack Cooldown: %s",
   "shield-helper.config.attack_strength": "Minimum Attack Strength: %s",
@@ -33,7 +34,6 @@
   "shield-helper.config.success_rate.empty": "Stats: Success N/A (0) | Miss N/A (0) [Total: 0]",
   "shield-helper.config.miss_percentage": "Intentional Miss Chance: %s",
   "shield-helper.config.reset": "Reset",
-  "shield-helper.config.max_attack_range": "Max Attack Range: %s",
   "shield-helper.config.ping_compensation": "Latency Compensation: %s",
   "shield-helper.config.post_attack_guard": "Auto Shield Guard: %s",
   "shield-helper.config.post_attack_guard_ticks": "Guard Duration: %s",
