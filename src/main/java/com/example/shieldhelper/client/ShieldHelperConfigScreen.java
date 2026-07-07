@@ -11,6 +11,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
+import java.util.Locale;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 
@@ -21,8 +22,10 @@ public final class ShieldHelperConfigScreen extends Screen {
     private static final int PAGE_CONTROLS = 1;
     private static final int PAGE_DELAYS = 2;
     private static final int CONTROL_WIDTH = 220;
-    private static final int CONTROL_HEIGHT = 20;
-    private static final int CONTROL_SPACING = 20;
+    // Rows are 18px (not 20) so the General page's maximum of 8 option rows plus the tab row and
+    // the Done/Reset row all fit above the 240px minimum GUI-scaled height without overlapping.
+    private static final int CONTROL_HEIGHT = 18;
+    private static final int CONTROL_SPACING = 18;
     private static final int DELAY_MAX_MILLIS = 250;
     private static final int DELAY_STEP_MILLIS = 5;
 
@@ -40,6 +43,9 @@ public final class ShieldHelperConfigScreen extends Screen {
     private Button hotkeyToggleButton;
     private Button statusNotificationsButton;
     private Button toggleKeyButton;
+    private Button disableDistanceMinusButton;
+    private Button disableDistanceValueButton;
+    private Button disableDistancePlusButton;
     private Button safetyStatusButton;
     private Button trustedServerButton;
 
@@ -67,7 +73,7 @@ public final class ShieldHelperConfigScreen extends Screen {
         clearWidgets();
 
         int x = (this.width - CONTROL_WIDTH) / 2;
-        int tabY = 44;
+        int tabY = 40;
         int tabWidth = (CONTROL_WIDTH - 12) / 3;
 
         generalPageButton = addRenderableWidget(Button.builder(generalPageText(), button -> {
@@ -202,6 +208,24 @@ public final class ShieldHelperConfigScreen extends Screen {
         }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
         offset++;
 
+        disableDistanceMinusButton = addRenderableWidget(Button.builder(Component.literal("-"), button -> {
+            config.adjustDisableDistanceTenths(-1);
+            ShieldHelperConfig.save();
+            updateButtonLabels();
+        }).bounds(x, y + CONTROL_SPACING * offset, 28, CONTROL_HEIGHT).build());
+
+        disableDistanceValueButton = addRenderableWidget(Button.builder(disableDistanceText(), button -> {
+        }).bounds(x + 32, y + CONTROL_SPACING * offset, CONTROL_WIDTH - 64, CONTROL_HEIGHT).build());
+        disableDistanceValueButton.active = false;
+
+        disableDistancePlusButton = addRenderableWidget(Button.builder(Component.literal("+"), button -> {
+            config.adjustDisableDistanceTenths(1);
+            ShieldHelperConfig.save();
+            updateButtonLabels();
+        }).bounds(x + CONTROL_WIDTH - 28, y + CONTROL_SPACING * offset, 28, CONTROL_HEIGHT).build());
+        updateDisableDistanceButtons();
+        offset++;
+
         safetyStatusButton = addRenderableWidget(Button.builder(safetyStatusText(), button -> {
         }).bounds(x, y + CONTROL_SPACING * offset, CONTROL_WIDTH, CONTROL_HEIGHT).build());
         safetyStatusButton.active = false;
@@ -271,6 +295,12 @@ public final class ShieldHelperConfigScreen extends Screen {
         if (toggleKeyButton != null) {
             toggleKeyButton.setMessage(toggleKeyText());
         }
+        if (disableDistanceValueButton != null) {
+            disableDistanceValueButton.setMessage(disableDistanceText());
+        }
+        if (disableDistanceMinusButton != null || disableDistancePlusButton != null) {
+            updateDisableDistanceButtons();
+        }
         if (safetyStatusButton != null) {
             safetyStatusButton.setMessage(safetyStatusText());
         }
@@ -338,6 +368,20 @@ public final class ShieldHelperConfigScreen extends Screen {
         }
 
         return Component.translatable("shield-helper.config.toggle_key", InputConstants.getKey(config.toggleKeyName).getDisplayName());
+    }
+
+    private Component disableDistanceText() {
+        return Component.translatable("shield-helper.config.disable_distance",
+                String.format(Locale.ROOT, "%.1f", config.disableDistanceBlocks));
+    }
+
+    private void updateDisableDistanceButtons() {
+        if (disableDistanceMinusButton != null) {
+            disableDistanceMinusButton.active = config.disableDistanceBlocks > ShieldHelperConfig.MIN_DISABLE_DISTANCE_BLOCKS;
+        }
+        if (disableDistancePlusButton != null) {
+            disableDistancePlusButton.active = config.disableDistanceBlocks < ShieldHelperConfig.MAX_DISABLE_DISTANCE_BLOCKS;
+        }
     }
 
     private Component safetyStatusText() {

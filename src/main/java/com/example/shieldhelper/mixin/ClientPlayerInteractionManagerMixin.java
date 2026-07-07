@@ -67,6 +67,7 @@ public abstract class ClientPlayerInteractionManagerMixin {
     private Minecraft minecraft;
 
     private boolean shieldhelper$processing;
+    private int shieldhelper$sequenceGeneration;
 
     @Shadow
     public abstract void ensureHasSentCarriedItem();
@@ -74,7 +75,11 @@ public abstract class ClientPlayerInteractionManagerMixin {
     @Inject(method = "attack", at = @At("HEAD"), cancellable = true)
     private void shieldhelper$onAttack(Player player, Entity target, CallbackInfo ci) {
         if (this.shieldhelper$processing) {
-            return;
+            if (ShieldHelperRuntime.isSequenceCurrent(this.shieldhelper$sequenceGeneration)) {
+                return;
+            }
+
+            this.shieldhelper$processing = false;
         }
 
         ShieldHelperConfig config = ShieldHelperConfig.get();
@@ -100,11 +105,19 @@ public abstract class ClientPlayerInteractionManagerMixin {
         int currentSlot = clientPlayer.getInventory().getSelectedSlot();
         int stunSlot = this.shieldhelper$getStunSlot(clientPlayer, currentSlot, axeSlot, maceSlot, isAirborne, config);
 
-        if (holdingSword && axeSlot != Inventory.NOT_FOUND_INDEX) {
+        // Both sword and mace holders route through the axe swap so the shield is actually
+        // disabled (maces do not disable shields); when airborne the stun step uses the mace
+        // (see getStunSlot) to land the smash follow-up.
+        if ((holdingSword || holdingMace) && axeSlot != Inventory.NOT_FOUND_INDEX) {
             ci.cancel();
-            this.shieldhelper$startSwapAndAttack(clientPlayer, axeSlot, currentSlot, stunSlot, target, config);
-        } else if (isAirborne && holdingMace && maceSlot != Inventory.NOT_FOUND_INDEX && config.stunning) {
-            this.shieldhelper$scheduleMaceFollowup(clientPlayer, maceSlot, currentSlot, target, config);
+            try {
+                this.shieldhelper$startSwapAndAttack(clientPlayer, axeSlot, currentSlot, stunSlot, target, config);
+            } catch (RuntimeException exception) {
+                // An inline (zero-delay / blatant) step threw before any async continuation could
+                // clear the guard; reset it so the macro is not stranded off until relog.
+                this.shieldhelper$processing = false;
+                ShieldHelperMod.LOGGER.warn("Shield Helper sequence failed.", exception);
+            }
         }
     }
 
@@ -113,7 +126,7 @@ public abstract class ClientPlayerInteractionManagerMixin {
                 && (config.blatantMode || ShieldHelperRuntime.triggerCooldownTicks <= 0)
                 && this.minecraft.screen == null && this.minecraft.player != null && this.minecraft.level != null && player == this.minecraft.player) {
             if (player instanceof LocalPlayer localPlayer && target instanceof LivingEntity livingTarget) {
-                if (this.shieldhelper$isBlocking(livingTarget) && this.shieldhelper$canAttackTarget(localPlayer, livingTarget)) {
+                if (this.shieldhelper$isBlocking(livingTarget) && this.shieldhelper$canAttackTarget(localPlayer, livingTarget, config)) {
                     return config.blatantMode || !config.requireAttackCooldown
                             || this.minecraft.player.getAttackStrengthScale(0.0F) * 100.0F >= (float) config.minimumAttackStrengthPercent;
                 }
@@ -126,14 +139,16 @@ public abstract class ClientPlayerInteractionManagerMixin {
         if (config.enabled && ShieldHelperSafety.isActionAllowed(this.minecraft, config) && this.minecraft.screen == null
                 && this.minecraft.player != null && this.minecraft.level != null && this.minecraft.gameMode != null && player != null && player == this.minecraft.player) {
             if (target instanceof LivingEntity livingTarget && !livingTarget.isRemoved() && livingTarget.isAlive()) {
-                return this.shieldhelper$canAttackTarget(player, livingTarget) && (!requireShieldBlocking || this.shieldhelper$isBlocking(livingTarget));
+                return this.shieldhelper$canAttackTarget(player, livingTarget, config) && (!requireShieldBlocking || this.shieldhelper$isBlocking(livingTarget));
             }
         }
         return false;
     }
 
-    private boolean shieldhelper$canAttackTarget(LocalPlayer player, Entity target) {
-        return player != null && target != null && !target.isRemoved() && target.isAlive() && this.shieldhelper$isWithinEntityReach(player, target);
+    private boolean shieldhelper$canAttackTarget(LocalPlayer player, Entity target, ShieldHelperConfig config) {
+        return player != null && target != null && !target.isRemoved() && target.isAlive()
+                && target.level() == this.minecraft.level
+                && this.shieldhelper$isWithinEntityReach(player, target, config);
     }
 
     private boolean shieldhelper$isSword(ItemStack stack) {
@@ -158,6 +173,7 @@ public abstract class ClientPlayerInteractionManagerMixin {
 
     private void shieldhelper$startSwapAndAttack(LocalPlayer player, int axeSlot, int originalSlot, int secondarySlot, Entity target, ShieldHelperConfig config) {
         this.shieldhelper$processing = true;
+        this.shieldhelper$sequenceGeneration = ShieldHelperRuntime.currentSequenceGeneration();
         int swapDelay = this.shieldhelper$getDelayMillis(config, config.swapDelayMillis);
         if (swapDelay <= 0) {
             this.shieldhelper$executeSwap(player, axeSlot, originalSlot, secondarySlot, target, config);
@@ -222,7 +238,7 @@ public abstract class ClientPlayerInteractionManagerMixin {
 
     private void shieldhelper$executeStunWeb(LocalPlayer player, int originalSlot, int restoreSlot, Entity target, ShieldHelperConfig config) {
         LocalPlayer currentPlayer = this.minecraft.player != null ? this.minecraft.player : player;
-        if (currentPlayer != null && target instanceof LivingEntity livingTarget && this.shieldhelper$canContinueForWeb(livingTarget, config)) {
+        if (currentPlayer != null && target instanceof LivingEntity livingTarget && this.shieldhelper$canContinueForWeb(currentPlayer, livingTarget, config)) {
             int webSlot = this.shieldhelper$findHotbarCobweb(currentPlayer);
             BlockHitResult hitResult = this.shieldhelper$findBestWebPlacementHit(currentPlayer, livingTarget);
             if (webSlot != Inventory.NOT_FOUND_INDEX && hitResult != null && this.shieldhelper$selectSlot(currentPlayer, webSlot)) {
@@ -234,7 +250,7 @@ public abstract class ClientPlayerInteractionManagerMixin {
                     SilentRotation.set(rotation.yaw(), rotation.pitch(), this);
                     try {
                         rotationSnapshot = SilentRotation.apply(currentPlayer);
-                        if (this.minecraft.gameMode != null && this.shieldhelper$canContinueForWeb(livingTarget, config)
+                        if (this.minecraft.gameMode != null && this.shieldhelper$canContinueForWeb(currentPlayer, livingTarget, config)
                                 && this.shieldhelper$isCobwebInSlot(currentPlayer, webSlot)
                                 && currentPlayer.getInventory().getSelectedSlot() == webSlot
                                 && this.shieldhelper$sendLookPacket(currentPlayer, rotation)) {
@@ -294,24 +310,11 @@ public abstract class ClientPlayerInteractionManagerMixin {
         this.shieldhelper$processing = false;
     }
 
-    private void shieldhelper$scheduleMaceFollowup(LocalPlayer player, int maceSlot, int originalSlot, Entity target, ShieldHelperConfig config) {
-        this.shieldhelper$processing = true;
-        this.shieldhelper$schedule(this.shieldhelper$getStunDelayMillis(config), () -> {
-            LocalPlayer currentPlayer = this.minecraft.player;
-            if (this.shieldhelper$canContinue(currentPlayer, target, false, config) && this.shieldhelper$selectSlot(currentPlayer, maceSlot)) {
-                ((MultiPlayerGameMode) (Object) this).attack(currentPlayer, target);
-                ShieldHelperRuntime.triggerCooldownTicks = Math.max(0, config.attackCooldownTicks);
-                currentPlayer.swing(InteractionHand.MAIN_HAND);
-                this.shieldhelper$webOrRestore(currentPlayer, originalSlot, maceSlot, target, config);
-            } else {
-                this.shieldhelper$restoreOrStop(currentPlayer, originalSlot, config);
-            }
-        });
-    }
-
-    private boolean shieldhelper$canContinueForWeb(LivingEntity target, ShieldHelperConfig config) {
+    private boolean shieldhelper$canContinueForWeb(LocalPlayer player, LivingEntity target, ShieldHelperConfig config) {
         return this.minecraft.player != null && this.minecraft.level != null && this.minecraft.gameMode != null
-                && target != null && !target.isRemoved() && target.isAlive() && config.enabled && ShieldHelperSafety.isActionAllowed(this.minecraft, config);
+                && player != null && player == this.minecraft.player
+                && config.enabled && ShieldHelperSafety.isActionAllowed(this.minecraft, config)
+                && this.shieldhelper$canAttackTarget(player, target, config);
     }
 
     private BlockHitResult shieldhelper$findBestWebPlacementHit(LocalPlayer player, LivingEntity target) {
@@ -440,8 +443,8 @@ public abstract class ClientPlayerInteractionManagerMixin {
         return maxDistance > 0.0D && player.getEyePosition().distanceToSqr(hitResult.getLocation()) <= maxDistance * maxDistance;
     }
 
-    private boolean shieldhelper$isWithinEntityReach(LocalPlayer player, Entity target) {
-        double maxDistance = player.entityInteractionRange() - 0.05D;
+    private boolean shieldhelper$isWithinEntityReach(LocalPlayer player, Entity target, ShieldHelperConfig config) {
+        double maxDistance = Math.min(player.entityInteractionRange(), config.disableDistanceBlocks) - 0.05D;
         return maxDistance > 0.0D && target.getBoundingBox().distanceToSqr(player.getEyePosition()) <= maxDistance * maxDistance;
     }
 
@@ -560,7 +563,13 @@ public abstract class ClientPlayerInteractionManagerMixin {
     }
 
     private void shieldhelper$schedule(int delayMillis, Runnable action) {
+        int generation = this.shieldhelper$sequenceGeneration;
         shieldhelper$scheduler.schedule(() -> this.minecraft.execute(() -> {
+            if (!ShieldHelperRuntime.isSequenceCurrent(generation)) {
+                this.shieldhelper$processing = false;
+                return;
+            }
+
             try {
                 action.run();
             } catch (RuntimeException exception) {

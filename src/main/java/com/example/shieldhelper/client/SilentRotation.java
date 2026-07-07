@@ -28,6 +28,11 @@ public final class SilentRotation {
         }
     }
 
+    public static void clear() {
+        active = false;
+        holder = null;
+    }
+
     public static boolean active() {
         return active;
     }

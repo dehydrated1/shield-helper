@@ -19,11 +19,13 @@ public final class ShieldHelperConfig {
     public static final String SAFETY_TRUSTED_SERVERS = "trusted_servers";
     public static final int DEFAULT_TOGGLE_KEY_CODE = 86;
     public static final String DEFAULT_TOGGLE_KEY_NAME = "key.keyboard.v";
-    private static final int CURRENT_CONFIG_VERSION = 21;
+    public static final double MIN_DISABLE_DISTANCE_BLOCKS = 2.0D;
+    public static final double MAX_DISABLE_DISTANCE_BLOCKS = 4.0D;
+    public static final double DEFAULT_DISABLE_DISTANCE_BLOCKS = 3.0D;
+    private static final int CURRENT_CONFIG_VERSION = 23;
     private static final int DEFAULT_STUN_WEB_DELAY_MILLIS = 100;
     private static final int DEFAULT_SWITCH_BACK_DELAY_MILLIS = 50;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve(ShieldHelperMod.MOD_ID + ".json");
 
     private static ShieldHelperConfig instance;
 
@@ -41,6 +43,7 @@ public final class ShieldHelperConfig {
     public boolean requireAttackCooldown = true;
     public int minimumAttackStrengthPercent = 90;
     public int attackCooldownTicks = 8;
+    public double disableDistanceBlocks = DEFAULT_DISABLE_DISTANCE_BLOCKS;
     public int swapDelayMillis = 0;
     public int firstAttackDelayMillis = 0;
     public int stunningMinDelayMillis = 50;
@@ -50,7 +53,7 @@ public final class ShieldHelperConfig {
     public boolean blatantMode = false;
     public int missPercentage = 0;
 
-    private ShieldHelperConfig() {
+    ShieldHelperConfig() {
     }
 
     public static ShieldHelperConfig get() {
@@ -62,8 +65,9 @@ public final class ShieldHelperConfig {
     }
 
     public static void load() {
-        if (Files.exists(CONFIG_PATH)) {
-            try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
+        Path configPath = configPath();
+        if (Files.exists(configPath)) {
+            try (Reader reader = Files.newBufferedReader(configPath)) {
                 instance = GSON.fromJson(reader, ShieldHelperConfig.class);
             } catch (IOException | RuntimeException exception) {
                 ShieldHelperMod.LOGGER.warn("Failed to load Shield Helper config. Using defaults.", exception);
@@ -88,8 +92,9 @@ public final class ShieldHelperConfig {
         config.clamp();
 
         try {
-            Files.createDirectories(CONFIG_PATH.getParent());
-            try (Writer writer = Files.newBufferedWriter(CONFIG_PATH)) {
+            Path configPath = configPath();
+            Files.createDirectories(configPath.getParent());
+            try (Writer writer = Files.newBufferedWriter(configPath)) {
                 GSON.toJson(config, writer);
             }
         } catch (IOException exception) {
@@ -112,6 +117,7 @@ public final class ShieldHelperConfig {
         requireAttackCooldown = true;
         minimumAttackStrengthPercent = 90;
         attackCooldownTicks = 8;
+        disableDistanceBlocks = DEFAULT_DISABLE_DISTANCE_BLOCKS;
         swapDelayMillis = 0;
         firstAttackDelayMillis = 0;
         stunningMinDelayMillis = 50;
@@ -154,6 +160,16 @@ public final class ShieldHelperConfig {
         clamp();
     }
 
+    public void adjustDisableDistanceTenths(int tenthsDelta) {
+        int distanceTenths = (int) Math.round(disableDistanceBlocks * 10.0D) + tenthsDelta;
+        int minTenths = (int) Math.round(MIN_DISABLE_DISTANCE_BLOCKS * 10.0D);
+        int maxTenths = (int) Math.round(MAX_DISABLE_DISTANCE_BLOCKS * 10.0D);
+        distanceTenths = Math.max(minTenths, Math.min(maxTenths, distanceTenths));
+
+        disableDistanceBlocks = distanceTenths / 10.0D;
+        clamp();
+    }
+
     public boolean isTrustedServer(String serverAddress) {
         String normalizedAddress = normalizeServerAddress(serverAddress);
         if (normalizedAddress.isEmpty()) {
@@ -189,16 +205,15 @@ public final class ShieldHelperConfig {
             return "";
         }
 
-        String address = serverAddress.trim().toLowerCase(Locale.ROOT);
-        int colonIndex = address.indexOf(':');
-        if (colonIndex != -1) {
-            address = address.substring(0, colonIndex);
-        }
-        return address;
+        return serverAddress.trim().toLowerCase(Locale.ROOT);
     }
 
     private static ShieldHelperConfig getWithoutLoading() {
         return instance;
+    }
+
+    private static Path configPath() {
+        return FabricLoader.getInstance().getConfigDir().resolve(ShieldHelperMod.MOD_ID + ".json");
     }
 
     private void migrate() {
@@ -241,6 +256,14 @@ public final class ShieldHelperConfig {
             missPercentage = 0;
         }
 
+        if (configVersion < 22) {
+            disableDistanceBlocks = DEFAULT_DISABLE_DISTANCE_BLOCKS;
+        }
+
+        if (configVersion < 23) {
+            disableDistanceBlocks = roundToTenths(disableDistanceBlocks);
+        }
+
         configVersion = CURRENT_CONFIG_VERSION;
     }
 
@@ -280,6 +303,16 @@ public final class ShieldHelperConfig {
             attackCooldownTicks = 20;
         }
 
+        if (!Double.isFinite(disableDistanceBlocks)) {
+            disableDistanceBlocks = DEFAULT_DISABLE_DISTANCE_BLOCKS;
+        } else if (disableDistanceBlocks < MIN_DISABLE_DISTANCE_BLOCKS) {
+            disableDistanceBlocks = MIN_DISABLE_DISTANCE_BLOCKS;
+        } else if (disableDistanceBlocks > MAX_DISABLE_DISTANCE_BLOCKS) {
+            disableDistanceBlocks = MAX_DISABLE_DISTANCE_BLOCKS;
+        } else {
+            disableDistanceBlocks = roundToTenths(disableDistanceBlocks);
+        }
+
         swapDelayMillis = clampDelay(swapDelayMillis);
         firstAttackDelayMillis = clampDelay(firstAttackDelayMillis);
         stunningMinDelayMillis = clampDelay(stunningMinDelayMillis);
@@ -308,5 +341,9 @@ public final class ShieldHelperConfig {
         }
 
         return Math.min(delayMillis, 250);
+    }
+
+    private static double roundToTenths(double value) {
+        return Math.round(value * 10.0D) / 10.0D;
     }
 }

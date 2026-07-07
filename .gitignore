@@ -2,13 +2,20 @@
 .gradle/
 build/
 bin/
+run/
 
 # IDE settings
 .idea/
+.antigravitycli/
 *.iml
 *.iws
 *.ipr
 out/
+
+# Local artifacts and logs
+/shield-helper-*.jar
+logs/
+*.log
 
 # Operating system files
 .DS_Store

@@ -4,7 +4,7 @@
   "version": "${version}",
   "name": "Shield Helper",
   "description": "Client-side shield interaction helper with configurable safety controls.",
-  "authors": ["YourName"],
+  "authors": ["Shield Helper Contributors"],
   "contact": {},
   "license": "MIT",
   "environment": "client",

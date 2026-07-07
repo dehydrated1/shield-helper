@@ -11,6 +11,7 @@
   "shield-helper.config.status_notifications": "Status Messages: %s",
   "shield-helper.config.toggle_key": "Toggle Key: %s",
   "shield-helper.config.toggle_key.waiting": "Toggle Key: [Press any key]",
+  "shield-helper.config.disable_distance": "Disable Distance: %s blocks",
   "shield-helper.config.safety_status": "Safety Status: %s",
   "shield-helper.config.safety_status.allowed": "ALLOWED",
   "shield-helper.config.safety_status.blocked": "TRUST REQUIRED",
